@@ -330,7 +330,7 @@ ligand_target_analysis <- function(sender_ct, receiver_ct, geneset_oi,
 
 ## function to perform ligand-receptor analysis ##
 receptor_ligand_analysis <- function(ligand_activities, receiver_ct, background_ct,
-                                     n_top_ligands,
+                                     n_top_ligands = 25,
                                      pct_expr_table, pct_thresh = 0.1,
                                      avg_expr_table,
                                      network_thresh = 0.4,
@@ -543,9 +543,10 @@ qual_interactions <- function(ligand_activities, n_top_ligands = 25,
     # scaling function
     scale <- function(x) ((x - min(x)) / (max(x) - min(x)))
     # transpose data (because normalizing data is more elegant to do columnwise)
+    rownames(sender_avg_expr) = rownames(sender_avg_expr) %>% make.names() # make.names() for heatmap 
     sender_avg_expr = sender_avg_expr %>% t() %>% data.frame()
     # normalize columnwise
-    sender_avg_expr = sender_avg_expr %>% mutate_at(ligand_pearson$test_ligand, scale)
+    sender_avg_expr = sender_avg_expr %>% mutate_at(make.names(ligand_pearson$test_ligand), scale)
     # restore rownames
     rownames(sender_avg_expr) <- sender_ct
     ## transpose again to get ligand x celltype data.frame
@@ -556,7 +557,7 @@ qual_interactions <- function(ligand_activities, n_top_ligands = 25,
 
     ## step 3: sum all ligand activity scores for each cell type
     # assertion check: check whether ligands in 'ligand_pearson' and 'avg_expr_table' have the same order
-    stopifnot(ligand_pearson$test_ligand == rownames(sender_avg_expr))
+    stopifnot(make.names(ligand_pearson$test_ligand) == rownames(sender_avg_expr))
     # multiply pearson of each ligand with average expression of the corresponding cell type 
     # to quantify contribution of each sender to effect of a given ligand
     weight_celltypes <- function(x)(x*ligand_pearson$pearson)
