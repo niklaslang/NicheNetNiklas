@@ -13,7 +13,7 @@ suppressPackageStartupMessages(library(viridis))
 
 ## function to perform ligand activity analysis ##
 ligand_activity_analysis <- function(sender_ct, receiver_ct, geneset_oi, 
-                            condition_oi, condition_ref,
+                            geneset_title,
                             pct_expr_table, pct_thresh = 0.10,
                             pearson_thresh = 0.08,
                             save_top_ligands = TRUE){
@@ -29,7 +29,7 @@ ligand_activity_analysis <- function(sender_ct, receiver_ct, geneset_oi,
     
     ## status message ##
     print(paste0("Using ", length(geneset_oi), " genes differently regulated genes in ", receiver_ct, " (",
-                 condition_oi, " vs. ", condition_ref, ")"))
+                 geneset_title, ")"))
     
     ### STEP1: Ligand activity analysis ###
     ## Define a set of potential ligands and receptors 
@@ -71,7 +71,7 @@ ligand_activity_analysis <- function(sender_ct, receiver_ct, geneset_oi,
 
 ## function to perform ligand-target analysis ##
 ligand_target_analysis <- function(sender_ct, receiver_ct, geneset_oi, 
-                            condition_oi, condition_ref,
+                            geneset_title,
                             pct_expr_table, pct_thresh = 0.10,
                             avg_expr_table,
                             pearson_thresh = 0.08, n_top_ligands = 25,
@@ -91,7 +91,7 @@ ligand_target_analysis <- function(sender_ct, receiver_ct, geneset_oi,
     
     ## status message ##
     print(paste0("Using ", length(geneset_oi), " genes differently regulated genes in ", receiver_ct, " (",
-                 condition_oi, " vs. ", condition_ref, ")"))
+                 geneset_title, ")"))
     
     ### STEP 1: Ligand activity analysis ###
     ## Define a set of potential ligands and receptors 
@@ -309,7 +309,7 @@ ligand_target_analysis <- function(sender_ct, receiver_ct, geneset_oi,
           scale_x_discrete(position = "top") + 
           xlab(paste0("")) + 
           ylab(paste0("")) + 
-    labs(title = paste0("DE genes ", receiver_ct, ": ", condition_oi, " vs. ", condition_ref)) +
+    labs(title = paste0(receiver_ct, " geneset: ", geneset_title)) +
     guides(fill = guide_colourbar("Regulatory potential", title.position = "top"))
     #plot_LigandTarget
     
@@ -329,7 +329,8 @@ ligand_target_analysis <- function(sender_ct, receiver_ct, geneset_oi,
 }
 
 ## function to perform ligand-receptor analysis ##
-receptor_ligand_analysis <- function(top_ligands, receiver_ct, background_ct,
+receptor_ligand_analysis <- function(ligand_activities, receiver_ct, background_ct,
+                                     n_top_ligands,
                                      pct_expr_table, pct_thresh = 0.1,
                                      avg_expr_table,
                                      network_thresh = 0.4,
@@ -337,6 +338,10 @@ receptor_ligand_analysis <- function(top_ligands, receiver_ct, background_ct,
                                      save_fig = TRUE){
     
     ### STEP 1: receptor prediction ###
+    ## filter top N top ranked ligands
+    top_ligands = ligand_activities %>% top_n(n_top_ligands, pearson) %>% arrange(-pearson) %>% 
+    pull(test_ligand) %>% unique()
+    
     ## get expressed receptors ##
     expr_genes_receiver = rownames(pct_expr_table[pct_expr_table[, receiver_ct] > pct_thresh, ])
     background_expr_genes = expr_genes_receiver %>% .[. %in% rownames(ligand_target_matrix)]
@@ -485,10 +490,11 @@ receptor_ligand_analysis <- function(top_ligands, receiver_ct, background_ct,
 }
 
 ## function to assess cell-cell interactions QUANTITATIVELY
-quant_interactions <- function(ligand_activities, sender_ct, receiver_ct, pct_expr_table, pct_thresh = 0.1){
-        
-    # retrieve top predicted ligands
-    ligand_pearson = ligand_activities %>% select(test_ligand) %>% arrange(test_ligand)
+quant_interactions <- function(ligand_activities, sender_ct, receiver_ct, 
+                               n_top_ligands = 25, pct_expr_table, pct_thresh = 0.1){
+     
+    # filter top N top ranked ligands
+    ligand_pearson = ligand_activities %>% top_n(n_top_ligands, pearson) %>% arrange(-pearson) %>% select(test_ligand) %>% arrange(test_ligand)
     
     ## for each predicted ligand, check in which celltypes they are expresed above pct.tresh
     # build ligand count vector
@@ -518,12 +524,14 @@ quant_interactions <- function(ligand_activities, sender_ct, receiver_ct, pct_ex
 }
 
 ## function to assess cell-cell interaction QUALITATIVELY
-qual_interactions <- function(ligand_activities, sender_ct, receiver_ct, avg_expr_table){
+qual_interactions <- function(ligand_activities, n_top_ligands = 25,
+                              sender_ct, receiver_ct, avg_expr_table){
         
     ## step 1: create data.frame ligand x celltype
-    # retrieve top ligands and corresponding pearson's rho
-    ligand_pearson = ligand_activities %>% select(test_ligand, pearson)
-    ligand_pearson = ligand_activities %>% arrange(test_ligand)
+    
+    # filter top N top ranked ligands
+    ligand_pearson = ligand_activities %>% top_n(n_top_ligands, pearson) %>% arrange(-pearson) %>%  select(test_ligand, pearson)
+    ligand_pearson = ligand_pearson %>% arrange(test_ligand)
     
     ## step 2: compute contribution of each sender celltype to ligand effect
     # average of all top ranked ligands in all cell types at timepoint after treatment
