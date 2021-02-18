@@ -221,9 +221,7 @@ ligand_target_analysis <- function(sender_ct, receiver_ct, geneset_oi,
                     mutate(y = factor(y, levels = rownames(top_ligands_avg_expression), ordered = TRUE), 
                            x = factor(x, levels = colnames(top_ligands_avg_expression), ordered = TRUE)) %>% 
                     mutate(score = ifelse(score == 0, NA, score))
-    
-    #return(top_ligands_avg_expression)
-    
+        
     ## right panel: ligand target heatmap
     ## status message ##
     print(paste0("Printing right panel: ligand target heatmap"))
